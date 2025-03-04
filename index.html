@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+    <title>Multiplayer Game</title>
+</head>
+<body>
+    <h1>Welcome to the Multiplayer Guessing Game!</h1>
+    <input id="username" placeholder="Enter your username">
+    <button id="join">Join Game</button>
+    <div id="game"></div>
+    <input id="guess" placeholder="Enter your guess">
+    <button id="submit">Submit Guess</button>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+
+        document.getElementById('join').onclick = function() {
+            const username = document.getElementById('username').value;
+            socket.emit('join', { username: username });
+        };
+
+        document.getElementById('submit').onclick = function() {
+            const guess = document.getElementById('guess').value;
+            socket.emit('guess', { guess: guess });
+        };
+
+        socket.on('player_joined', function(data) {
+            const gameDiv = document.getElementById('game');
+            gameDiv.innerHTML += `<p>${data.username} has joined the game!</p>`;
+        });
+
+        socket.on('new_guess', function(data) {
+            const gameDiv = document.getElementById('game');
+            gameDiv.innerHTML += `<p>New guess: ${data.guess}</p>`;
+        });
+    </script>
+</body>
+</html>
