@@ -2,42 +2,61 @@ import socket
 import threading
 import random
 
-# Generate the random number
+# Generate a random number for the game
 target_number = random.randint(1, 100)
-print(f"[INFO] Secret number generated: {target_number}")
+print(f"[INFO] The secret number is {target_number}")
 
 # Server setup
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind(("127.0.0.1", 12345))  # Host and port
-server_socket.listen(5)
-print("[INFO] Server is running and waiting for players...")
+server_socket.listen(5)  # Allow up to 5 simultaneous connections
+print("[INFO] Server is running and waiting for connections...")
 
-# Handle each player's connection
-def handle_player(conn, addr):
-    print(f"[INFO] Player {addr} has connected.")
-    conn.send("Welcome to the Number Guessing Game! Guess a number between 1 and 100.".encode())
-    
+clients = []
+
+# Broadcast a message to all connected clients
+def broadcast(message):
+    for client in clients:
+        try:
+            client.send(message.encode())
+        except:
+            clients.remove(client)
+
+# Handle each connected client
+def handle_client(client_socket, address):
+    print(f"[INFO] Player {address} has connected.")
+    client_socket.send("Welcome to the Number Guessing Game! Guess a number between 1 and 100.".encode())
+    clients.append(client_socket)
+
     while True:
         try:
-            guess = conn.recv(1024).decode()  # Receive guess from player
+            # Receive a guess from the client
+            guess = client_socket.recv(1024).decode()
             if not guess:
                 break
-            guess = int(guess)
-            if guess < target_number:
-                conn.send("Too low! Try again.".encode())
-            elif guess > target_number:
-                conn.send("Too high! Try again.".encode())
-            else:
-                conn.send("Congratulations! You guessed the number!".encode())
-                print(f"[INFO] Player {addr} guessed the number! The game is over.")
-                conn.close()
-                break
-        except ValueError:
-            conn.send("Invalid input! Please enter a number.".encode())
-    
-    print(f"[INFO] Player {addr} disconnected.")
+            try:
+                guess = int(guess)
+                if guess < target_number:
+                    response = f"[{address}] Too low! Try again."
+                elif guess > target_number:
+                    response = f"[{address}] Too high! Try again."
+                else:
+                    response = f"[{address}] Congratulations! You guessed it!"
+                    broadcast(response)
+                    break
+                broadcast(response)
+            except ValueError:
+                client_socket.send("Invalid input! Please enter a valid number.".encode())
+        except:
+            clients.remove(client_socket)
+            break
 
-# Accept multiple players
+    print(f"[INFO] Player {address} disconnected.")
+    clients.remove(client_socket)
+    client_socket.close()
+
+# Accept multiple client connections
 while True:
     conn, addr = server_socket.accept()
-    threading.Thread(target=handle_player, args=(conn, addr)).start()
+    threading.Thread(target=handle_client, args=(conn, addr)).start()
+
